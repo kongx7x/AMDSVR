@@ -1,4 +1,6 @@
--- BENCH MOBILE // FULL TOUCH v8.3 (Completo e Original)
+-- BENCH MOBILE // FULL TOUCH v8 (Desync Camera Fix + Instant Prompts & Anim Remover)
+-- Correção do Desync (câmera travada no chão) + Zera Prompts de Baú + Remove Animações de Ferramenta.
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -288,7 +290,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 40, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "BENCH MOBILE // FULL TOUCH v8.3"
+TitleLabel.Text = "BENCH MOBILE // FULL TOUCH v8"
 TitleLabel.TextColor3 = Color3.fromRGB(235, 235, 245)
 TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.TextSize = 13
@@ -1296,13 +1298,15 @@ task.spawn(function()
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
         local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
 
+        -- ANGLE / ANIMATION REMOVER PARA FACADAS E GOLPES
         if Config.AnimRemover and myHum then
             pcall(function()
                 local animator = myHum:FindFirstChildOfClass("Animator")
                 if animator then
                     for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                        -- Interrompe animações de ataque/ferramenta para zerar delay de facada
                         if string.find(string.lower(track.Name), "tool") or string.find(string.lower(track.Name), "slash") or string.find(string.lower(track.Name), "stab") or string.find(string.lower(track.Name), "attack") then
-                            track:AdjustSpeed(5.0)
+                            track:AdjustSpeed(5.0) -- Acelera instantaneamente ou cancela
                         end
                     end
                 end
@@ -1379,6 +1383,7 @@ local function updateESP()
                 local isAlly = (Config.TeamCheck and plr.Team == LocalPlayer.Team and plr.Team ~= nil)
                 local espColor = isAlly and Color3.fromRGB(60, 220, 90) or Color3.fromRGB(255, 65, 65)
 
+                -- 1. Text ESP
                 if Config.ESP then
                     local tag = head:FindFirstChild("BenchMobileTag")
                     if not tag then
@@ -1405,6 +1410,7 @@ local function updateESP()
                     end
                 end
 
+                -- 2. Skeleton ESP Sincronizado (R15 / R6)
                 if Config.SkeletonESP and Drawing then
                     if not SkeletonDrawings[plr] then
                         SkeletonDrawings[plr] = {
@@ -1595,6 +1601,7 @@ RunService.RenderStepped:Connect(function(dt)
             if not desyncGroundPos then
                 desyncGroundPos = root.Position
             end
+            -- Joga o corpo físico real para cima, mas mantém a câmera focada na posição original do chão
             local currentCamCF = Camera.CFrame
             root.CFrame = CFrame.new(desyncGroundPos + Vector3.new(0, 180, 0)) * (currentCamCF - currentCamCF.Position)
             Camera.CFrame = currentCamCF
