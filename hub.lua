@@ -1,5 +1,5 @@
--- BENCH MOBILE // FULL TOUCH v8 (Desync Camera Fix + Instant Prompts & Anim Remover)
--- Correção do Desync (câmera travada no chão) + Zera Prompts de Baú + Remove Animações de Ferramenta.
+-- BENCH MOBILE // FULL TOUCH v7 (Skeleton Fix + Desync Body Offset)
+-- Correção definitiva do esqueleto ESP (R15/R6 sincronizado) + Desync Invisibility Mode.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -45,9 +45,7 @@ local Config = {
     Speed = false,
     WalkSpeed = 48,
     Noclip = false,
-    DesyncBody = false,      -- Corpo no céu, câmera fica no chão
-    InstantPrompts = false,  -- Abre baús e portas instantaneamente
-    AnimRemover = false,     -- Remove delay de animação de facas/ferramentas
+    DesyncBody = false, -- Joga o corpo para cima mantendo o controle
     AttachBack = false,
     Flinging = false,
     UISounds = true,
@@ -290,7 +288,7 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 40, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "BENCH MOBILE // FULL TOUCH v8"
+TitleLabel.Text = "BENCH MOBILE // FULL TOUCH v7"
 TitleLabel.TextColor3 = Color3.fromRGB(235, 235, 245)
 TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.TextSize = 13
@@ -734,12 +732,6 @@ addToggle(MovePage, "Desync Body (Corpo no Céu/Invisível)", "rbxassetid://6034
         end
     end
 end)
-addToggle(MovePage, "Instant Prompts (Zera Hold Baús)", "rbxassetid://6034754445", Config.InstantPrompts, function(v)
-    Config.InstantPrompts = v
-end)
-addToggle(MovePage, "Animation Remover (Sem Delay Facada)", "rbxassetid://6034754445", Config.AnimRemover, function(v)
-    Config.AnimRemover = v
-end)
 addToggle(MovePage, "Pulo Infinito (Inf Jump)", "rbxassetid://6034754445", Config.InfJump, function(v)
     Config.InfJump = v
 end)
@@ -1158,32 +1150,12 @@ GoCoordBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- PULO INFINITO & INSTANT PROMPTS
+-- PULO INFINITO
 -- ==========================================
 UserInputService.JumpRequest:Connect(function()
     if Config.InfJump and LocalPlayer.Character then
         local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end)
-
-Workspace.DescendantAdded:Connect(function(descendant)
-    if descendant:IsA("ProximityPrompt") then
-        if Config.InstantPrompts then
-            descendant.HoldDuration = 0
-        end
-    end
-end)
-
-task.spawn(function()
-    while task.wait(1) do
-        if Config.InstantPrompts then
-            for _, prompt in ipairs(Workspace:GetDescendants()) do
-                if prompt:IsA("ProximityPrompt") and prompt.HoldDuration > 0 then
-                    prompt.HoldDuration = 0
-                end
-            end
-        end
     end
 end)
 
@@ -1270,7 +1242,7 @@ local function getClosestTargetToCenter()
 end
 
 -- ==========================================
--- BALA MÁGICA + DANO + ANIM REMOVER
+-- BALA MÁGICA + DANO
 -- ==========================================
 local function triggerDamageOnPart(handle, targetPart, pulses)
     if not handle or not targetPart then return end
@@ -1296,23 +1268,6 @@ task.spawn(function()
 
         local myChar = LocalPlayer.Character
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-
-        -- ANGLE / ANIMATION REMOVER PARA FACADAS E GOLPES
-        if Config.AnimRemover and myHum then
-            pcall(function()
-                local animator = myHum:FindFirstChildOfClass("Animator")
-                if animator then
-                    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-                        -- Interrompe animações de ataque/ferramenta para zerar delay de facada
-                        if string.find(string.lower(track.Name), "tool") or string.find(string.lower(track.Name), "slash") or string.find(string.lower(track.Name), "stab") or string.find(string.lower(track.Name), "attack") then
-                            track:AdjustSpeed(5.0) -- Acelera instantaneamente ou cancela
-                        end
-                    end
-                end
-            end)
-        end
-
         if not myChar or not myRoot then continue end
 
         local equippedTool = myChar:FindFirstChildOfClass("Tool")
@@ -1430,6 +1385,8 @@ local function updateESP()
                     end
 
                     local sLines = SkeletonDrawings[plr]
+                    
+                    -- Mapeia tanto R15 quanto R6 com fallback seguro para não bugar
                     local pHead = char:FindFirstChild("Head")
                     local pUpper = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
                     local pLower = char:FindFirstChild("LowerTorso") or char:FindFirstChild("Torso")
@@ -1528,7 +1485,7 @@ local function updateESP()
 end
 
 -- ==========================================
--- MOTORES (NOCLIP, DESYNC COM CÂMERA FIXA NO CHÃO, AIMBOT, FLY 3D)
+-- MOTORES (NOCLIP, DESYNC, AIMBOT, FLY 3D)
 -- ==========================================
 RunService.Stepped:Connect(function()
     local char = LocalPlayer.Character
@@ -1554,7 +1511,6 @@ end)
 
 local flyActivePrev = false
 local lockedY = nil
-local desyncGroundPos = nil
 
 RunService.RenderStepped:Connect(function(dt)
     Camera = Workspace.CurrentCamera
@@ -1596,19 +1552,9 @@ RunService.RenderStepped:Connect(function(dt)
             end
         end
 
-        -- DESYNC BODY COM CÂMERA MANTIDA NO CHÃO
+        -- DESYNC BODY (Joga o real hitbox/corpo para cima enquanto você opera)
         if Config.DesyncBody and root and not Config.Fly and not Config.Flinging then
-            if not desyncGroundPos then
-                desyncGroundPos = root.Position
-            end
-            -- Joga o corpo físico real para cima, mas mantém a câmera focada na posição original do chão
-            local currentCamCF = Camera.CFrame
-            root.CFrame = CFrame.new(desyncGroundPos + Vector3.new(0, 180, 0)) * (currentCamCF - currentCamCF.Position)
-            Camera.CFrame = currentCamCF
-        else
-            if desyncGroundPos then
-                desyncGroundPos = nil
-            end
+            root.CFrame = root.CFrame + Vector3.new(0, 180, 0)
         end
 
         -- FLY 3D COM ANALÓGICO CORRIGIDO E TRAVA DE ALTURA Y
